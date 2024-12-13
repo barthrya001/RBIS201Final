@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ryan B. AI Gaming</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: black; font-family: Arial, Helvetica, sans-serif; }
+        canvas { display: block; }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 24px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        span{
+            background-color: white;
+            padding:10px;
+        }
+    </style>
+</head>
+<body>
+        <!--Header-->
+        <div class="header">
+            <h2>I know that my redemer lives...</h2>
+        </div>
+
+        <!--Nav Bar-->
+        <div class="navbar">
+            <span>
+                <a class="nav-link px-lg-3 py-3 py-lg-4" href="index.html">Home</a></li> |
+                <a class="nav-link px-lg-3 py-3 py-lg-4" href="resume.html">My Resume</a></li> |
+                <a class="nav-link px-lg-3 py-3 py-lg-4" href="scratch.html">My Scratch Page</a></li> |
+                <a class="nav-link px-lg-3 py-3 py-lg-4" href="aipage.html">My AI Project</a></li> 
+            </span>
+        </div>
+        <h1 style="float:right; color:white">
+            Arrows: Move<br>
+            Space Bar: Shoot<br>
+        </h1>
+    <div id="score">Score: 0</div>
+    <canvas id="fpsCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('fpsCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game variables
+        const player = {
+            x: 400,
+            y: 300,
+            angle: 0,
+            speed: 2,
+            fov: Math.PI / 4, // 45-degree field of view
+        };
+
+        const bullets = [];
+        let score = 0;
+
+        // Horizon and mountain range parameters
+        const horizonY = canvas.height / 2; // Horizon is halfway up the screen
+
+        // Crosshair properties
+        let crosshairY = canvas.height / 2;  // Start crosshair at center of the screen
+
+        // Target properties (fixed in the world)
+        let target = {
+            x: 600,  // Initial X position for the target in the world
+            y: horizonY + 50, // Target starts above the grass plain (green area)
+            size: 30, // Size of the target
+            visible: true, // Whether the target is visible
+        };
+
+        // Function to calculate bullet size based on crosshair Y position
+        function calculateBulletSize() {
+            const maxDistance = canvas.height / 2; // Maximum distance the crosshair can move
+            const distanceFromCenter = Math.abs(crosshairY - horizonY);
+            const sizeFactor = 1 - (distanceFromCenter / maxDistance); // Inverse relation to the distance
+            return Math.max(5, 20 * sizeFactor); // Minimum bullet size is 5, maximum is 20
+        }
+
+        // Bullet class
+        class Bullet {
+            constructor(targetY) {
+                this.x = canvas.width / 2;  // Start at the top center of the screen
+                this.y = 0;  // Start from the top
+                this.size = calculateBulletSize();  // Set the size based on crosshair position
+                this.speed = 5;
+                this.targetY = targetY;  // Bullet will travel towards the crosshair
+            }
+
+            update() {
+                // Move the bullet down towards the crosshair
+                if (this.y < this.targetY) {
+                    this.y += this.speed;
+                }
+
+                // Shrink the bullet to simulate moving away
+                this.size *= 0.98;
+
+                // Check for collision with the target
+                if (target.visible && this.y >= target.y - target.size / 2 && this.y <= target.y + target.size / 2) {
+                    if (Math.abs(this.x - target.x) < target.size / 2) {
+                        target.visible = false; // Hide the target if hit
+                        score += 1; // Increase score
+                        setTimeout(createNewTarget, 1000); // Wait 1 second before creating a new target
+                    }
+                }
+            }
+        }
+
+        // Key states for movement
+        const keys = {};
+        window.addEventListener('keydown', (e) => { keys[e.key] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+        // Move the player (turning the camera)
+        function movePlayer() {
+            if (keys['ArrowLeft']) { 
+                player.angle -= 0.05; 
+                target.x += 5; // Move the target left when the player moves left
+            }
+            if (keys['ArrowRight']) { 
+                player.angle += 0.05; 
+                target.x -= 5; // Move the target right when the player moves right
+            }
+        }
+
+        // Draw the mountains
+        function drawMountains() {
+            ctx.beginPath();
+            ctx.moveTo(0, horizonY);
+
+            // Create a jagged mountain range
+            for (let i = 0; i < canvas.width; i++) {
+                const mountainHeight = Math.sin(i / 50 + player.angle) * 50 + 50; // Jagged mountain effect
+                ctx.lineTo(i, horizonY - mountainHeight);
+            }
+
+            // Complete the mountain range and fill it
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.closePath();
+            ctx.fillStyle = '#8B4513'; // Mountain color
+            ctx.fill();
+        }
+
+        // Draw the grass plain
+        function drawGrassPlain() {
+            ctx.fillStyle = 'green';
+            ctx.fillRect(0, horizonY + 100, canvas.width, canvas.height - horizonY - 100);  // Grass starts just below horizon
+        }
+
+        // Draw the crosshair
+        function drawCrosshair() {
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2 - 15, crosshairY);
+            ctx.lineTo(canvas.width / 2 + 15, crosshairY);  // Horizontal part of crosshair
+            ctx.moveTo(canvas.width / 2, crosshairY - 15);
+            ctx.lineTo(canvas.width / 2, crosshairY + 15);  // Vertical part of crosshair
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Shoot a bullet
+        function shootBullet() {
+            const bullet = new Bullet(crosshairY);  // Bullet moves toward crosshair's Y position
+            bullets.push(bullet);
+        }
+
+        // Update bullets
+        function updateBullets() {
+            for (let i = 0; i < bullets.length; i++) {
+                const bullet = bullets[i];
+                bullet.update();
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
+                ctx.fillStyle = 'yellow';
+                ctx.fill();
+                if (bullet.size < 1) { bullets.splice(i, 1); i--; } // Remove bullet when it gets too small
+            }
+        }
+
+        // Draw the target (fixed in the world, not moving with player)
+        function drawTarget() {
+            if (target.visible) {
+                ctx.beginPath();
+                ctx.arc(target.x, target.y, target.size, 0, Math.PI * 2);
+                ctx.fillStyle = 'orange';
+                ctx.fill();
+            }
+        }
+
+        // Create a new target at a random position, above the grass plain
+        function createNewTarget() {
+            target.x = Math.random() * (canvas.width - 100) + 50; // Random X position
+            target.y = Math.random() * (horizonY - 100) + 50; // Random Y position, above the green area (grass)
+            target.size = 30; // Reset target size
+            target.visible = true; // Make target visible again
+        }
+
+        // Draw the score
+        function drawScore() {
+            document.getElementById('score').textContent = `Score: ${score}`;
+        }
+
+        // Draw the FPS world
+        function drawWorld() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMountains(); // Draw mountains
+            drawGrassPlain(); // Draw the grass plain
+            drawTarget(); // Draw the target
+            drawCrosshair(); // Draw crosshair
+            updateBullets(); // Draw and update bullets
+            drawScore(); // Draw score
+        }
+
+        // Game loop
+        function gameLoop() {
+            movePlayer(); // Move player (turning camera)
+            drawWorld(); // Draw the scene
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listener for shooting
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ') { // Spacebar to shoot
+                shootBullet();
+            }
+        });
+
+        // Event listeners for crosshair movement
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') {  // Move crosshair up
+                crosshairY = Math.max(crosshairY - 10, horizonY - 200);  // Prevent going above horizon
+            }
+            if (e.key === 'ArrowDown') {  // Move crosshair down
+                crosshairY = Math.min(crosshairY + 10, canvas.height - 50);  // Prevent going below the screen
+            }
+        });
+
+        // Start the game loop
+        gameLoop();
+    </script>
+</body>
+</html>

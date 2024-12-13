@@ -1,0 +1,10 @@
+h1,h2,h3,h4,h5,h6,.otherheader{
+color:#112955
+}
+.headeroverwrite{
+    color: white
+}
+.listformat{
+    list-style-type: none;
+    font-family: Lora, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+}
